@@ -5,7 +5,7 @@ module QueryGPT
   class Pipeline
     DEFAULT_EXAMPLE_K = 5
 
-    def initialize(workspace_store:, llm:, vector_store:, embeddings:, intent_agent:, table_agent:, column_prune_agent:, prompt_enhancer:, sql_generator:, evaluator:)
+    def initialize(workspace_store:, llm:, vector_store:, embeddings:, intent_agent:, table_agent:, column_prune_agent:, prompt_enhancer:, sql_generator:, evaluator:, logger: nil)
       @workspace_store = workspace_store
       @llm = llm
       @vector_store = vector_store
@@ -16,6 +16,7 @@ module QueryGPT
       @prompt_enhancer = prompt_enhancer
       @sql_generator = sql_generator
       @evaluator = evaluator
+      @logger = logger
     end
 
     def run(question:, forced_workspace: nil, forced_tables: [], debug: false)
@@ -23,16 +24,23 @@ module QueryGPT
 
       enhanced = @prompt_enhancer.enhance(question: question, dry_run: dry_run?)
       debug_info[:enhanced_question] = enhanced
+      log("Enhanced question: #{enhanced[:expanded]}")
 
       selected_workspaces = pick_workspaces(question, forced_workspace, debug_info)
+      log("Selected workspaces: #{selected_workspaces.join(', ')}")
+
       candidate_tables = @workspace_store.tables_for(selected_workspaces).map(&:table_id)
+      log("Candidate tables: #{candidate_tables.join(', ')}")
 
       proposed_tables = pick_tables(question, forced_tables, candidate_tables, debug_info)
       confirmed_tables = proposed_tables
+      log("Confirmed tables: #{confirmed_tables.join(', ')}")
 
       pruned_schemas = prune_tables(question, confirmed_tables, debug_info)
+      log("Pruned schemas: #{pruned_schemas.map(&:table_id).join(', ')}")
 
       examples = select_examples(question, selected_workspaces, debug_info)
+      log("Few-shot examples: #{examples.map(&:id).join(', ')}")
 
       gen_result = @sql_generator.generate(
         question: question,
@@ -43,9 +51,11 @@ module QueryGPT
         dry_run: dry_run?
       )
       debug_info[:sql_generation] = { prompt: gen_result[:prompt], raw: gen_result[:raw] }
+      log("Generated SQL (pre-eval)")
 
       eval_result = @evaluator.evaluate(sql: gen_result[:sql], pruned_schemas: pruned_schemas)
       debug_info[:evaluation] = eval_result
+      log("Evaluation valid=#{eval_result[:valid]} errors=#{eval_result[:errors].join('; ')}")
 
       if !eval_result[:valid] && !dry_run?
         repaired = @sql_generator.repair(
@@ -59,6 +69,7 @@ module QueryGPT
         gen_result[:sql] = repaired[:sql]
         gen_result[:explanation] = repaired[:explanation]
         debug_info[:repair] = { prompt: repaired[:prompt], raw: repaired[:raw] }
+        log("Ran repair step")
       end
 
       PipelineResult.new(
@@ -77,6 +88,11 @@ module QueryGPT
 
     def dry_run?
       @llm.respond_to?(:dry_run) && @llm.dry_run
+    end
+
+    def log(message)
+      return unless @logger
+      @logger.call(message)
     end
 
     def pick_workspaces(question, forced_workspace, debug_info)

@@ -2,9 +2,8 @@ source "https://rubygems.org"
 
 gem "json"
 gem "yaml"
-gem "faraday"
 gem "pg"
-gem "activerecord"
+gem "light-openai-lib", git: "https://github.com/GaetanJuvin/light-openai-lib"
 
 group :development, :test do
   gem "rspec"
