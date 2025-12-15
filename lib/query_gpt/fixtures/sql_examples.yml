@@ -1,0 +1,132 @@
+---
+- id: ex_trips_daily_city
+  workspace: Mobility
+  description: Daily completed trips by city with fare sum
+  sql: |
+    SELECT date(requested_at) AS trip_date, city, count(*) AS trips, sum(fare_amount) AS total_fare
+    FROM mobility.trips
+    WHERE status = 'completed'
+      AND requested_at >= current_date - interval '30 days'
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, 2;
+
+- id: ex_trips_funnel
+  workspace: Mobility
+  description: Trip request to completion funnel by day
+  sql: |
+    WITH daily AS (
+      SELECT date(requested_at) AS d,
+             count(*) FILTER (WHERE status = 'requested') AS requested,
+             count(*) FILTER (WHERE status = 'accepted') AS accepted,
+             count(*) FILTER (WHERE status = 'completed') AS completed
+      FROM mobility.trips
+      WHERE requested_at >= current_date - interval '14 days'
+      GROUP BY 1
+    )
+    SELECT * FROM daily ORDER BY d DESC;
+
+- id: ex_driver_earnings
+  workspace: Mobility
+  description: Driver earnings by city last 7 days
+  sql: |
+    SELECT city, sum(driver_earnings) AS earnings, sum(fare_amount) AS gross
+    FROM mobility.trips
+    WHERE status = 'completed'
+      AND requested_at >= current_date - interval '7 days'
+    GROUP BY 1
+    ORDER BY earnings DESC;
+
+- id: ex_ads_ctr
+  workspace: Ads
+  description: CTR by campaign and device last 14 days
+  sql: |
+    SELECT campaign_id, device,
+           count(*) FILTER (WHERE event_type = 'click')::float / nullif(count(*) FILTER (WHERE event_type = 'impression'), 0) AS ctr
+    FROM ads.impressions
+    WHERE ts >= current_date - interval '14 days'
+    GROUP BY 1, 2
+    ORDER BY ctr DESC NULLS LAST;
+
+- id: ex_ads_spend_by_channel
+  workspace: Ads
+  description: Spend by channel and day
+  sql: |
+    SELECT date(ts) AS day, channel, sum(cost_micros)/1e6 AS spend
+    FROM ads.impressions
+    WHERE ts >= current_date - interval '30 days'
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, 2;
+
+- id: ex_ads_conversion_funnel
+  workspace: Ads
+  description: Click to conversion funnel by campaign
+  sql: |
+    WITH clicks AS (
+      SELECT campaign_id, count(*) AS clicks
+      FROM ads.impressions
+      WHERE event_type = 'click'
+        AND ts >= current_date - interval '14 days'
+      GROUP BY 1
+    ),
+    conversions AS (
+      SELECT campaign_id, count(*) AS conversions, sum(revenue) AS revenue
+      FROM ads.conversions
+      WHERE ts >= current_date - interval '14 days'
+      GROUP BY 1
+    )
+    SELECT c.campaign_id, clicks, conversions, revenue,
+           conversions::float / nullif(clicks, 0) AS cvr
+    FROM clicks c
+    LEFT JOIN conversions v ON v.campaign_id = c.campaign_id
+    ORDER BY cvr DESC NULLS LAST;
+
+- id: ex_users_signup_daily
+  workspace: CoreServices
+  description: Daily signups by country
+  sql: |
+    SELECT created_date, country, count(*) AS signups
+    FROM core.users
+    WHERE created_date >= current_date - interval '30 days'
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, 3 DESC;
+
+- id: ex_sessions_dau
+  workspace: CoreServices
+  description: Daily active users by platform
+  sql: |
+    SELECT date(started_at) AS day, platform, count(DISTINCT user_id) AS dau
+    FROM core.sessions
+    WHERE started_at >= current_date - interval '14 days'
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, 2;
+
+- id: ex_users_cohort
+  workspace: CoreServices
+  description: Simple retention cohort by signup week
+  sql: |
+    WITH cohorts AS (
+      SELECT user_id, date_trunc('week', created_at) AS cohort_week
+      FROM core.users
+    ),
+    activity AS (
+      SELECT user_id, date_trunc('week', started_at) AS active_week
+      FROM core.sessions
+      GROUP BY 1, 2
+    )
+    SELECT c.cohort_week, a.active_week, count(DISTINCT a.user_id) AS active_users
+    FROM cohorts c
+    JOIN activity a ON a.user_id = c.user_id
+    WHERE a.active_week >= c.cohort_week
+    GROUP BY 1, 2
+    ORDER BY 1 DESC, 2 DESC;
+
+- id: ex_sessions_device_mix
+  workspace: CoreServices
+  description: Device mix across sessions last 7 days
+  sql: |
+    SELECT device, count(*) AS sessions,
+           count(*)::float / sum(count(*)) OVER () AS share
+    FROM core.sessions
+    WHERE started_at >= current_date - interval '7 days'
+    GROUP BY 1
+    ORDER BY sessions DESC;

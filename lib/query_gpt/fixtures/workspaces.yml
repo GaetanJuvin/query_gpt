@@ -1,0 +1,29 @@
+---
+- name: Mobility
+  description: Ride sharing trips, drivers, payments, cities
+  table_ids:
+    - mobility.trips
+    - mobility.driver_payments
+  sql_example_ids:
+    - ex_trips_daily_city
+    - ex_trips_funnel
+    - ex_driver_earnings
+- name: Ads
+  description: Advertising impressions, clicks, spend, campaigns
+  table_ids:
+    - ads.impressions
+    - ads.conversions
+  sql_example_ids:
+    - ex_ads_ctr
+    - ex_ads_spend_by_channel
+    - ex_ads_conversion_funnel
+- name: CoreServices
+  description: Core user accounts and sessions shared across products
+  table_ids:
+    - core.users
+    - core.sessions
+  sql_example_ids:
+    - ex_users_signup_daily
+    - ex_sessions_dau
+    - ex_users_cohort
+    - ex_sessions_device_mix

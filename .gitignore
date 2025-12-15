@@ -1,0 +1,6 @@
+config.yml
+lib/query_gpt/fixtures/generated/
+.bundle/
+vendor/
+*.log
+tmp/

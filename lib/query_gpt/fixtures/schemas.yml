@@ -1,0 +1,149 @@
+---
+- table_id: mobility.trips
+  description: Completed and canceled trip facts
+  columns:
+    - {name: trip_id, type: bigint, description: Primary key}
+    - {name: rider_id, type: bigint, description: Rider foreign key}
+    - {name: driver_id, type: bigint, description: Driver foreign key}
+    - {name: city, type: text, description: City name}
+    - {name: status, type: text, description: requested, accepted, completed, canceled}
+    - {name: requested_at, type: timestamp, description: Request time}
+    - {name: accepted_at, type: timestamp, description: Accept time}
+    - {name: completed_at, type: timestamp, description: Completion time}
+    - {name: canceled_at, type: timestamp, description: Cancel time}
+    - {name: fare_amount, type: numeric, description: Fare charged}
+    - {name: driver_earnings, type: numeric, description: Payout to driver}
+    - {name: payment_method, type: text, description: Card, cash, wallet}
+    - {name: surge_multiplier, type: numeric, description: Surge factor}
+    - {name: distance_miles, type: numeric, description: Distance}
+    - {name: duration_seconds, type: integer, description: Duration}
+    - {name: coupon_code, type: text, description: Coupon code}
+    - {name: coupon_value, type: numeric, description: Discount amount}
+    - {name: platform, type: text, description: ios, android, web}
+    - {name: service_level, type: text, description: economy, premium, shared}
+    - {name: created_at, type: timestamp, description: Row timestamp}
+  partition_info: by day on requested_at
+
+- table_id: mobility.driver_payments
+  description: Driver payouts and adjustments
+  columns:
+    - {name: payout_id, type: bigint, description: Primary key}
+    - {name: driver_id, type: bigint, description: Driver foreign key}
+    - {name: city, type: text, description: City name}
+    - {name: payout_date, type: date, description: Payout date}
+    - {name: payout_amount, type: numeric, description: Gross payout}
+    - {name: adjustments, type: numeric, description: Adjustments amount}
+    - {name: tips, type: numeric, description: Tips}
+    - {name: tax_withheld, type: numeric, description: Taxes withheld}
+    - {name: currency, type: text, description: Currency code}
+    - {name: payment_method, type: text, description: Bank, wallet}
+    - {name: created_at, type: timestamp, description: Row timestamp}
+  partition_info: by month on payout_date
+
+- table_id: ads.impressions
+  description: Impression and click level events
+  columns:
+    - {name: event_id, type: bigint, description: Primary key}
+    - {name: campaign_id, type: bigint, description: Campaign foreign key}
+    - {name: ad_group_id, type: bigint, description: Ad group}
+    - {name: creative_id, type: bigint, description: Creative}
+    - {name: user_id, type: bigint, description: Viewer user id}
+    - {name: country, type: text, description: Country}
+    - {name: city, type: text, description: City}
+    - {name: device, type: text, description: ios, android, web}
+    - {name: event_type, type: text, description: impression or click}
+    - {name: ts, type: timestamp, description: Event timestamp}
+    - {name: cost_micros, type: bigint, description: Spend in micros}
+    - {name: placement, type: text, description: Feed, stories, search}
+    - {name: channel, type: text, description: Owned channel name}
+    - {name: is_viewable, type: boolean, description: Viewability flag}
+    - {name: publisher_id, type: bigint, description: Exchange or publisher}
+    - {name: session_id, type: text, description: Session token}
+    - {name: created_at, type: timestamp, description: Row timestamp}
+  partition_info: by day on ts
+
+- table_id: ads.conversions
+  description: Conversion events attributed to ads
+  columns:
+    - {name: conv_id, type: bigint, description: Primary key}
+    - {name: campaign_id, type: bigint, description: Campaign foreign key}
+    - {name: ad_group_id, type: bigint, description: Ad group}
+    - {name: user_id, type: bigint, description: User id}
+    - {name: city, type: text, description: City}
+    - {name: device, type: text, description: Device}
+    - {name: ts, type: timestamp, description: Conversion timestamp}
+    - {name: revenue, type: numeric, description: Conversion revenue}
+    - {name: conversion_type, type: text, description: signup, purchase, etc}
+    - {name: attribution_model, type: text, description: last_click, data_driven}
+    - {name: created_at, type: timestamp, description: Row timestamp}
+  partition_info: by day on ts
+
+- table_id: core.users
+  description: User accounts across products
+  columns:
+    - {name: user_id, type: bigint, description: Primary key}
+    - {name: email, type: text, description: User email}
+    - {name: created_at, type: timestamp, description: Account creation}
+    - {name: country, type: text, description: Country}
+    - {name: city, type: text, description: City}
+    - {name: marketing_opt_in, type: boolean, description: Opt in flag}
+    - {name: status, type: text, description: active, churned, banned}
+    - {name: signup_channel, type: text, description: organic, paid}
+    - {name: last_active_at, type: timestamp, description: Last activity}
+    - {name: language, type: text, description: Preferred language}
+    - {name: referral_code, type: text, description: Referral}
+    - {name: age_bucket, type: text, description: Age bucket}
+    - {name: platform, type: text, description: ios, android, web}
+    - {name: account_type, type: text, description: rider, driver, advertiser}
+    - {name: risk_score, type: numeric, description: Risk model score}
+    - {name: city_id, type: bigint, description: City identifier}
+    - {name: region, type: text, description: Region}
+    - {name: created_date, type: date, description: Creation date partition}
+  partition_info: by day on created_date
+
+- table_id: core.sessions
+  description: Large session events table (intentionally wide to test pruning)
+  columns:
+    - {name: session_id, type: text, description: Session id}
+    - {name: user_id, type: bigint, description: User id}
+    - {name: started_at, type: timestamp, description: Session start}
+    - {name: ended_at, type: timestamp, description: Session end}
+    - {name: device, type: text, description: Device}
+    - {name: platform, type: text, description: Platform}
+    - {name: city, type: text, description: City}
+    - {name: country, type: text, description: Country}
+    - {name: app_version, type: text, description: Version}
+    - {name: build_number, type: text, description: Build}
+    - {name: locale, type: text, description: Locale}
+    - {name: network_type, type: text, description: wifi, cellular}
+    - {name: carrier, type: text, description: Carrier}
+    - {name: device_model, type: text, description: Model}
+    - {name: os_version, type: text, description: OS version}
+    - {name: screen_height, type: integer, description: Screen height}
+    - {name: screen_width, type: integer, description: Screen width}
+    - {name: timezone, type: text, description: Timezone}
+    - {name: referrer, type: text, description: Referrer}
+    - {name: source, type: text, description: Source}
+    - {name: medium, type: text, description: Medium}
+    - {name: campaign, type: text, description: Campaign}
+    - {name: is_paid, type: boolean, description: Paid flag}
+    - {name: is_bot, type: boolean, description: Bot flag}
+    - {name: screen_count, type: integer, description: Screens viewed}
+    - {name: crash_count, type: integer, description: Crashes}
+    - {name: purchase_value, type: numeric, description: Purchases}
+    - {name: session_length_seconds, type: integer, description: Length}
+    - {name: push_enabled, type: boolean, description: Push enabled}
+    - {name: ad_id, type: text, description: Ad identifier}
+    - {name: idfa, type: text, description: iOS ad id}
+    - {name: idfv, type: text, description: iOS vendor id}
+    - {name: gaid, type: text, description: Android ad id}
+    - {name: device_ram_gb, type: numeric, description: RAM}
+    - {name: device_storage_gb, type: numeric, description: Storage}
+    - {name: battery_level, type: numeric, description: Battery}
+    - {name: battery_saver, type: boolean, description: Battery saver}
+    - {name: connection_speed_mbps, type: numeric, description: Speed}
+    - {name: coordinates, type: text, description: Lat long}
+    - {name: weather, type: text, description: Weather}
+    - {name: ts, type: timestamp, description: Event timestamp}
+    - {name: created_at, type: timestamp, description: Row timestamp}
+  partition_info: by day on ts
