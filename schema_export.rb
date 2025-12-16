@@ -4,7 +4,6 @@ require "yaml"
 require "fileutils"
 require "erb"
 require "pg"
-require "active_record"
 
 # Loads a connector based on config.yml and exports schema into fixtures.
 
@@ -44,13 +43,11 @@ output_dir = File.expand_path(schema_export["output_dir"] || "lib/query_gpt/fixt
 include_tables = schema_export["include_tables"] || []
 exclude_tables = schema_export["exclude_tables"] || %w[schema_migrations ar_internal_metadata __diesel_schema_migrations]
 
-# Establish standalone ActiveRecord connection using provided DB config (no Rails app_root needed)
 erb_cfg = ERB.new(db_config.to_yaml).result
-db_params = YAML.load(erb_cfg)
-ActiveRecord::Base.establish_connection(db_params)
+db_params = YAML.safe_load(erb_cfg)
 
 connector = QueryGPT::Connectors::PostgresActiveRecordConnector.new(
-  connection: ActiveRecord::Base.connection,
+  db_config: db_params,
   workspace: workspace_name,
   description: description,
   include_tables: include_tables,

@@ -1,11 +1,12 @@
 require_relative "base_connector"
+require "pg"
 
 module QueryGPT
   module Connectors
-    # Pulls schema from an ActiveRecord connection (Postgres) and returns QueryGPT fixture data.
+    # Pulls schema from Postgres using the pg gem and returns QueryGPT fixture data.
     class PostgresActiveRecordConnector < BaseConnector
-      def initialize(connection:, workspace:, description:, include_tables: [], exclude_tables: %w[schema_migrations ar_internal_metadata __diesel_schema_migrations])
-        @connection = connection
+      def initialize(db_config:, workspace:, description:, include_tables: [], exclude_tables: %w[schema_migrations ar_internal_metadata __diesel_schema_migrations])
+        @db_config = db_config
         @workspace = workspace
         @description = description
         @include_tables = include_tables
@@ -28,12 +29,22 @@ module QueryGPT
           schemas: schemas,
           examples: []
         }
+      ensure
+        @conn&.close
       end
 
       private
 
+      def connection
+        return @conn if @conn
+        params = pg_params(@db_config)
+        @conn = PG.connect(params)
+      end
+
       def table_list
-        all = @connection.tables
+        sql = "SELECT tablename FROM pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema')"
+        res = connection.exec(sql)
+        all = res.values.flatten
         if @include_tables.any?
           all & @include_tables
         else
@@ -42,10 +53,17 @@ module QueryGPT
       end
 
       def build_schema(table)
-        cols = @connection.columns(table).map do |col|
+        sql = <<~SQL
+          SELECT column_name, data_type
+          FROM information_schema.columns
+          WHERE table_name = $1
+          ORDER BY ordinal_position
+        SQL
+        res = connection.exec_params(sql, [table])
+        cols = res.map do |row|
           {
-            name: col.name,
-            type: col.sql_type,
+            name: row["column_name"],
+            type: row["data_type"],
             description: ""
           }
         end
@@ -55,6 +73,27 @@ module QueryGPT
           columns: cols,
           partition_info: nil
         }
+      end
+
+      def pg_params(cfg)
+        if cfg["url"]
+          uri = URI(cfg["url"])
+          {
+            host: uri.host,
+            port: uri.port,
+            dbname: uri.path&.sub(%r{\A/}, ""),
+            user: uri.user,
+            password: uri.password
+          }.compact
+        else
+          {
+            host: cfg["host"],
+            port: cfg["port"],
+            dbname: cfg["database"] || cfg["dbname"],
+            user: cfg["username"] || cfg["user"],
+            password: cfg["password"]
+          }.compact
+        end
       end
     end
   end
